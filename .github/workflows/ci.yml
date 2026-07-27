@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ "main" ]
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
@@ -40,7 +44,7 @@ jobs:
           scan-type: 'fs'
           scan-ref: '.'
           format: 'table'
-          exit-code: '0' # Don't fail the pipeline for repo files initially, but report
+          exit-code: '0'
           ignore-unfixed: true
           severity: 'CRITICAL,HIGH'
 
@@ -51,31 +55,42 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # Build Frontend Image
+      - name: Downcase Repository Name for Docker Tagging
+        run: |
+          echo "IMAGE_REPO=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+          echo "COMMIT_SHA=${{ github.sha }}" >> $GITHUB_ENV
+
+      # Build Frontend Image (Tagged with latest and commit SHA)
       - name: Build Frontend Image
         run: |
-          docker build -t aio-soc-frontend:latest -f docker/Dockerfile.frontend .
+          docker build \
+            -t ghcr.io/${{ env.IMAGE_REPO }}/frontend:latest \
+            -t ghcr.io/${{ env.IMAGE_REPO }}/frontend:${{ env.COMMIT_SHA }} \
+            -f docker/Dockerfile.frontend .
 
       # Scan Frontend Image with Trivy
       - name: Run Trivy Scanner (Frontend Image)
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'aio-soc-frontend:latest'
+          image-ref: 'ghcr.io/${{ env.IMAGE_REPO }}/frontend:latest'
           format: 'table'
           exit-code: '1'
           ignore-unfixed: true
           severity: 'CRITICAL,HIGH'
 
-      # Build Backend Image
+      # Build Backend Image (Tagged with latest and commit SHA)
       - name: Build Backend Image
         run: |
-          docker build -t aio-soc-backend:latest -f docker/Dockerfile.backend .
+          docker build \
+            -t ghcr.io/${{ env.IMAGE_REPO }}/backend:latest \
+            -t ghcr.io/${{ env.IMAGE_REPO }}/backend:${{ env.COMMIT_SHA }} \
+            -f docker/Dockerfile.backend .
 
       # Scan Backend Image with Trivy
       - name: Run Trivy Scanner (Backend Image)
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'aio-soc-backend:latest'
+          image-ref: 'ghcr.io/${{ env.IMAGE_REPO }}/backend:latest'
           format: 'table'
           exit-code: '1'
           ignore-unfixed: true
@@ -91,3 +106,21 @@ jobs:
           # Query backend health via frontend Nginx proxy on Port 80
           curl -s --fail http://localhost/api/health || (docker compose logs && exit 1)
           docker compose down
+
+      # Log in to GitHub Container Registry (Only on push to main)
+      - name: Log in to GHCR
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Push Frontend & Backend Images to GHCR (Only on push to main)
+      - name: Publish Images to GHCR
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          docker push ghcr.io/${{ env.IMAGE_REPO }}/frontend:latest
+          docker push ghcr.io/${{ env.IMAGE_REPO }}/frontend:${{ env.COMMIT_SHA }}
+          docker push ghcr.io/${{ env.IMAGE_REPO }}/backend:latest
+          docker push ghcr.io/${{ env.IMAGE_REPO }}/backend:${{ env.COMMIT_SHA }}
