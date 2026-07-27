@@ -1,0 +1,82 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Linter
+        run: npm run lint
+
+      - name: Run Tests & Coverage
+        run: npm run coverage
+
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy Vulnerability Scanner (Repo FS Scan)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          exit-code: '0' # Don't fail the pipeline for repo files initially, but report
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+
+  docker-build-and-scan:
+    needs: [lint-and-test, security-scan]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # Build Frontend Image
+      - name: Build Frontend Image
+        run: |
+          docker build -t aio-soc-frontend:latest -f docker/Dockerfile.frontend .
+
+      # Scan Frontend Image with Trivy
+      - name: Run Trivy Scanner (Frontend Image)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'aio-soc-frontend:latest'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+
+      # Build Backend Image
+      - name: Build Backend Image
+        run: |
+          docker build -t aio-soc-backend:latest -f docker/Dockerfile.backend .
+
+      # Scan Backend Image with Trivy
+      - name: Run Trivy Scanner (Backend Image)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'aio-soc-backend:latest'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'

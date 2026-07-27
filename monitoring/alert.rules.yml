@@ -1,0 +1,20 @@
+groups:
+  - name: cyberops_alerts
+    rules:
+      - alert: InstanceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Instance {{ $labels.instance }} is down"
+          description: "The monitored service {{ $labels.job }} has been offline for more than 1 minute."
+
+      - alert: HighRequestLatency
+        expr: rate(http_request_duration_seconds_sum[5m]) / rate(http_request_duration_seconds_count[5m]) > 1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High request latency on {{ $labels.instance }}"
+          description: "Average request latency is above 1 second for more than 2 minutes."

@@ -3,13 +3,41 @@ import cors from 'cors';
 import pkg from 'pg';
 const { Pool } = pkg;
 import dotenv from 'dotenv';
+import client from 'prom-client';
 dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3001;
 
+// Prometheus metrics configuration
+client.collectDefaultMetrics({ register: client.register });
+
+const httpRequestDurationMicroseconds = new client.Histogram({
+  name: 'http_request_duration_seconds',
+  help: 'Duration of HTTP requests in seconds',
+  labelNames: ['method', 'route', 'code'],
+  buckets: [0.1, 0.3, 0.5, 0.7, 1, 3, 5, 7, 10]
+});
+client.register.registerMetric(httpRequestDurationMicroseconds);
+
 app.use(cors());
 app.use(express.json());
+
+// Prometheus request duration middleware
+app.use((req, res, next) => {
+  const start = process.hrtime();
+  res.on('finish', () => {
+    const duration = process.hrtime(start);
+    const durationInSeconds = duration[0] + duration[1] / 1e9;
+    const path = req.route ? req.route.path : req.path;
+    if (path !== '/api/metrics') {
+      httpRequestDurationMicroseconds
+        .labels(req.method, path || req.path, res.statusCode)
+        .observe(durationInSeconds);
+    }
+  });
+  next();
+});
 
 // Initialize PostgreSQL Connection Pool
 const pool = new Pool({
@@ -57,6 +85,16 @@ initializeDB();
 // Healthcheck
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'CyberOps Backend is running.' });
+});
+
+// Prometheus metrics endpoint
+app.get('/api/metrics', async (req, res) => {
+  try {
+    res.set('Content-Type', client.register.contentType);
+    res.end(await client.register.metrics());
+  } catch (err) {
+    res.status(500).end(err);
+  }
 });
 
 import { createHash } from 'crypto';
