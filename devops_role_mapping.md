@@ -46,10 +46,11 @@ This document maps the architectural patterns, security hardening, monitoring, a
 > **Job Responsibility**: *Build, automate, and secure CI/CD pipelines for reliable and safe deployments.*
 
 * **What We Implemented**:
-  - **Automated Workflow** ([.github/workflows/ci.yml](file:///c:/Users/rafii/Downloads/Project/aio-soc-platform/.github/workflows/ci.yml)): Automates lint check, unit testing execution, security audits, Docker Compose smoke tests, and pushes secure images to **GitHub Container Registry (GHCR)**.
+  - **Automated Workflow** ([.github/workflows/ci.yml](file:///c:/Users/rafii/Downloads/Project/aio-soc-platform/.github/workflows/ci.yml)): Automates lint check, unit testing execution, **SonarQube Quality Gateway scans**, security audits, Docker Compose smoke tests, and pushes secure images to **GitHub Container Registry (GHCR)**.
+  - **SonarQube Properties Configuration** ([sonar-project.properties](file:///c:/Users/rafii/Downloads/Project/aio-soc-platform/sonar-project.properties)): Set up project keys, sources, and automated coverage report mapping (LCOV).
   - **Continuous Delivery**: Configured automated SSH-based deployment for Docker Compose and context-based deployment for Kubernetes.
 * **How to Talk About It**:
-  > *"I built an E2E GitHub Actions workflow that not only lints, tests, and scans packages but also executes an automated integration smoke test. The runner boots up the multi-container stack in the background, runs health checks via Nginx, and pushes images to GHCR on merge to main."*
+  > *"I built an E2E GitHub Actions workflow that not only lints, tests, and scans packages but also executes a SonarQube code quality scan mapping LCOV metrics from our Vitest reports. It runs an automated integration compose smoke test, checks health endpoints, and securely releases the containers to GHCR."*
 
 ---
 

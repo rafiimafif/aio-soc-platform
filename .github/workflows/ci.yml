@@ -44,6 +44,14 @@ jobs:
       - name: Run Tests & Coverage
         run: npm run coverage
 
+      # Step 1.6: Runs SonarQube quality gateway scan (skips automatically if secrets are not set)
+      - name: SonarQube Scan
+        if: ${{ secrets.SONAR_TOKEN != '' }}
+        uses: sonarsource/sonarqube-scan-action@v2
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}        # Authenticates against the SonarQube/SonarCloud organization instance
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}  # Host address of the target SonarQube dashboard
+
   # JOB 2: Performs security static analysis on the source code repository
   security-scan:
     runs-on: ubuntu-latest # Runs on the latest Ubuntu runner
