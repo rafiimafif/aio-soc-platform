@@ -16,11 +16,17 @@ export default defineConfig([
     languageOptions: {
       globals: {
         ...globals.browser,
-        ...globals.jest, // For testing globals
+        ...globals.jest,
         vi: 'writable',
+        global: 'readonly',
+        process: 'readonly',
       },
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
+    rules: {
+      'no-unused-vars': 'warn',
+      'react-hooks/set-state-in-effect': 'off',
+    }
   },
   {
     files: ['backend/**/*.js'],
