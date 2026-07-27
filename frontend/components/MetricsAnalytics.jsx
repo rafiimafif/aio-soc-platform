@@ -1,3 +1,4 @@
+import React from 'react';
 import { LineChart, Line, PieChart, Pie, Cell, CartesianGrid, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import { MOCK_ANALYSTS } from '../utils/data';
 

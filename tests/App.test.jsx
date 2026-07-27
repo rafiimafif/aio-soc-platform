@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import React from 'react';
 import App from '../frontend/App';
 import { LoginGateway } from '../frontend/components/LoginGateway';
 import { SiemDashboard } from '../frontend/components/SiemDashboard';

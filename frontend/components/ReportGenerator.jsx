@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { FileText, Download, Copy, CheckCircle } from 'lucide-react';
 import { MOCK_ANALYSTS } from '../utils/data';
 import { getRandomSecure } from '../utils/crypto';

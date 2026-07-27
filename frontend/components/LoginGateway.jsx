@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { ShieldAlert, Shield, Terminal } from 'lucide-react';
 import { hashStringSHA256, SECURE_HASH } from '../utils/crypto';
 

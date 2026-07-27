@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Hash, CheckCircle, AlertTriangle, FileSearch, Check } from 'lucide-react';
 import { MOCK_FORENSIC_CASES, getSeverityBgColor } from '../utils/data';
 

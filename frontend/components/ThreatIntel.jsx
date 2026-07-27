@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Shield, Users, RefreshCw } from 'lucide-react';
 import { MOCK_TTPS, MOCK_APT_GROUPS, getSeverityBgColor } from '../utils/data';
 import { getRandomSecure } from '../utils/crypto';
