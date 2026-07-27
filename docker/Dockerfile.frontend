@@ -19,6 +19,9 @@ RUN npm run build
 # Stage 2: Serve the Application with Nginx
 FROM nginx:alpine
 
+# Upgrade OS packages to patch base vulnerabilities
+RUN apk update && apk upgrade --no-cache
+
 # Copy the build output from the first stage to the default Nginx public folder
 COPY --from=build /app/dist /usr/share/nginx/html
 
