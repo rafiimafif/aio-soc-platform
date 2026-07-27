@@ -4,6 +4,7 @@ import pkg from 'pg';
 const { Pool } = pkg;
 import dotenv from 'dotenv';
 import client from 'prom-client';
+import { createHash } from 'crypto';
 dotenv.config();
 
 const app = express();
@@ -49,7 +50,7 @@ const pool = new Pool({
 });
 
 // Test DB Connection
-pool.query('SELECT NOW()', (err, res) => {
+pool.query('SELECT NOW()', (err) => {
   if (err) {
     console.error('Error connecting to PostgreSQL database:', err.stack);
   } else {
@@ -96,8 +97,6 @@ app.get('/api/metrics', async (req, res) => {
     res.status(500).end(err);
   }
 });
-
-import { createHash } from 'crypto';
 
 app.post('/api/auth', async (req, res) => {
   const { username, password } = req.body;
