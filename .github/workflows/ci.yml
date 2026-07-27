@@ -1,66 +1,87 @@
+# Name of the GitHub Actions workflow
 name: CI/CD Pipeline
 
+# Defines the trigger events for the workflow
 on:
+  # Triggers the workflow on push events targeting the "main" branch
   push:
     branches: [ "main" ]
+  # Triggers the workflow on pull request events targeting the "main" branch
   pull_request:
     branches: [ "main" ]
 
+# Configures the default permissions for the GITHUB_TOKEN used in jobs
 permissions:
-  contents: read
-  packages: write
+  contents: read      # Allows the job to check out the repository content
+  packages: write     # Allows the job to push container images to GitHub Packages (GHCR)
 
+# Defines the concurrent jobs to execute in the pipeline
 jobs:
+  # JOB 1: Handles lint checks, formatting verification, and unit tests
   lint-and-test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest # Runs the job on a hosted Ubuntu Linux runner
     steps:
+      # Step 1.1: Checks out the repository files so the runner can access them
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      # Step 1.2: Sets up Node.js environment inside the runner
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: '20' # Installs Node.js version 20
+          cache: 'npm'       # Automatically caches NPM dependencies to speed up future builds
 
+      # Step 1.3: Performs a clean dependency installation using package-lock.json
       - name: Install Dependencies
         run: npm ci
 
+      # Step 1.4: Executes ESLint checks to enforce code style and catch errors
       - name: Run Linter
         run: npm run lint
 
+      # Step 1.5: Runs Vitest test suites and outputs coverage calculations
       - name: Run Tests & Coverage
         run: npm run coverage
 
+  # JOB 2: Performs security static analysis on the source code repository
   security-scan:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest # Runs on the latest Ubuntu runner
     steps:
+      # Step 2.1: Checks out the repository files
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      # Step 2.2: Runs Trivy vulnerability scanner on the workspace filesystem
       - name: Run Trivy Vulnerability Scanner (Repo FS Scan)
         uses: aquasecurity/trivy-action@master
         with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          format: 'table'
-          exit-code: '0'
-          ignore-unfixed: true
-          severity: 'CRITICAL,HIGH'
+          scan-type: 'fs'             # Specifies filesystem scanning mode
+          scan-ref: '.'               # Scans the current directory (project root)
+          format: 'table'             # Displays findings in a CLI table format
+          exit-code: '0'              # Logs warning details but keeps building (prevents blocking during POC)
+          ignore-unfixed: true        # Ignores vulnerabilities that do not have a vendor patch yet
+          severity: 'CRITICAL,HIGH'   # Filters alerts to only display CRITICAL and HIGH severity issues
 
+  # JOB 3: Builds the Docker images, scans them for vulnerabilities, and runs local smoke tests
   docker-build-and-scan:
+    # Requires Job 1 (lint-and-test) and Job 2 (security-scan) to succeed before starting
     needs: [lint-and-test, security-scan]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest # Runs on Ubuntu runner
     steps:
+      # Step 3.1: Checks out the repository
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      # Step 3.2: Standardizes repository name casing and commits SHA to env variables
       - name: Downcase Repository Name for Docker Tagging
         run: |
+          # Converts repository name to lowercase (Docker doesn't accept uppercase tags)
           echo "IMAGE_REPO=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+          # Stores the current commit SHA to act as a unique version release tag
           echo "COMMIT_SHA=${{ github.sha }}" >> $GITHUB_ENV
 
-      # Build Frontend Image (Tagged with latest and commit SHA)
+      # Step 3.3: Compiles the Frontend image and tags it with 'latest' and commit SHA
       - name: Build Frontend Image
         run: |
           docker build \
@@ -68,17 +89,17 @@ jobs:
             -t ghcr.io/${{ env.IMAGE_REPO }}/frontend:${{ env.COMMIT_SHA }} \
             -f docker/Dockerfile.frontend .
 
-      # Scan Frontend Image with Trivy
+      # Step 3.4: Audits the compiled Frontend image using Trivy scanner
       - name: Run Trivy Scanner (Frontend Image)
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'ghcr.io/${{ env.IMAGE_REPO }}/frontend:latest'
-          format: 'table'
-          exit-code: '1'
-          ignore-unfixed: true
-          severity: 'CRITICAL,HIGH'
+          image-ref: 'ghcr.io/${{ env.IMAGE_REPO }}/frontend:latest' # Targets the newly built image
+          format: 'table'                                            # Formats scan report as table
+          exit-code: '1'                                             # Fails build if image contains vulnerabilities
+          ignore-unfixed: true                                       # Ignores vulnerabilities without available patches
+          severity: 'CRITICAL,HIGH'                                  # Targets high and critical alerts only
 
-      # Build Backend Image (Tagged with latest and commit SHA)
+      # Step 3.5: Compiles the Backend image and tags it with 'latest' and commit SHA
       - name: Build Backend Image
         run: |
           docker build \
@@ -86,37 +107,41 @@ jobs:
             -t ghcr.io/${{ env.IMAGE_REPO }}/backend:${{ env.COMMIT_SHA }} \
             -f docker/Dockerfile.backend .
 
-      # Scan Backend Image with Trivy
+      # Step 3.6: Audits the compiled Backend image using Trivy scanner
       - name: Run Trivy Scanner (Backend Image)
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'ghcr.io/${{ env.IMAGE_REPO }}/backend:latest'
-          format: 'table'
-          exit-code: '1'
-          ignore-unfixed: true
-          severity: 'CRITICAL,HIGH'
+          image-ref: 'ghcr.io/${{ env.IMAGE_REPO }}/backend:latest'  # Targets backend image
+          format: 'table'                                            # Formats scan report as table
+          exit-code: '1'                                             # Fails build if image contains vulnerabilities
+          ignore-unfixed: true                                       # Ignores vulnerabilities without patches
+          severity: 'CRITICAL,HIGH'                                  # Targets high and critical alerts only
 
-      # Test Docker Compose Orchestration (Integration/E2E check)
+      # Step 3.7: Executes a test bootup of the multi-container stack inside the runner
       - name: Verify Docker Compose Orchestration
         run: |
+          # Launches the stack in daemon (background) mode
           docker compose up -d
           echo "Waiting 15 seconds for services to boot and connect..."
           sleep 15
+          # Displays running containers and status
           docker compose ps
-          # Query backend health via frontend Nginx proxy on Port 80
+          # Probes the API Gateway health endpoint through the Frontend Nginx proxy.
+          # If curl fails, dumps containers logs and exits with code 1 to break the build.
           curl -s --fail http://localhost/api/health || (docker compose logs && exit 1)
+          # Tears down the containers and cleans up the runner's workspace
           docker compose down
 
-      # Log in to GitHub Container Registry (Only on push to main)
+      # Step 3.8: Logs in to GitHub Packages Registry (executes only on pushes to 'main')
       - name: Log in to GHCR
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: ghcr.io                  # Sets registry target to GHCR
+          username: ${{ github.actor }}       # Uses the builder's GitHub username
+          password: ${{ secrets.GITHUB_TOKEN }} # Authenticates with default action context token
 
-      # Push Frontend & Backend Images to GHCR (Only on push to main)
+      # Step 3.9: Publishes the secure Frontend/Backend containers to GHCR (executes on 'main' push only)
       - name: Publish Images to GHCR
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
@@ -124,3 +149,58 @@ jobs:
           docker push ghcr.io/${{ env.IMAGE_REPO }}/frontend:${{ env.COMMIT_SHA }}
           docker push ghcr.io/${{ env.IMAGE_REPO }}/backend:latest
           docker push ghcr.io/${{ env.IMAGE_REPO }}/backend:${{ env.COMMIT_SHA }}
+
+  # JOB 4: Automates deployment updates to hosting environments
+  deploy:
+    # Requires docker-build-and-scan to complete and publish images successfully
+    needs: docker-build-and-scan
+    # Only executes on push events to the 'main' branch (skips on PR checks)
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest # Runs on Ubuntu runner
+    steps:
+      # Step 4.1: Checks out the code to access kubernetes manifests
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # Step 4.2: Deploys Docker Compose stack to remote host via SSH (executes only if SSH secrets exist)
+      - name: Deploy Docker Compose Stack (SSH)
+        if: ${{ secrets.SSH_HOST != '' }}
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            # Creates deployment folder structure
+            mkdir -p /app/aio-soc-platform
+            cd /app/aio-soc-platform
+            # Pulls latest docker-compose setup config directly from main branch
+            curl -sSL https://raw.githubusercontent.com/${{ github.repository }}/main/docker-compose.yml -o docker-compose.yml
+            # Authenticates remote host against GHCR
+            docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+            # Pulls updated image layers
+            docker compose pull
+            # Launches updated services
+            docker compose up -d
+
+      # Step 4.3: Sets up Kubeconfig environment (executes only if KUBECONFIG secret exists)
+      - name: Set up Kubeconfig
+        if: ${{ secrets.KUBECONFIG != '' }}
+        uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBECONFIG }}
+
+      # Step 4.4: Deploys manifests to target Kubernetes cluster (executes only if Kubeconfig exists)
+      - name: Deploy Manifests to Kubernetes
+        if: ${{ secrets.KUBECONFIG != '' }}
+        run: |
+          # Lowercases repository name for correct image registry target reference
+          IMAGE_REPO=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')
+          # Applies configurations, secrets, volumes, and deployment specs
+          kubectl apply -f kubernetes/postgres.yaml
+          kubectl apply -f kubernetes/backend.yaml
+          kubectl apply -f kubernetes/frontend.yaml
+          # Re-tags active deployments with the new commit SHA to trigger a rolling update
+          kubectl set image deployment/backend backend=ghcr.io/${IMAGE_REPO}/backend:${{ github.sha }}
+          kubectl set image deployment/frontend frontend=ghcr.io/${IMAGE_REPO}/frontend:${{ github.sha }}
