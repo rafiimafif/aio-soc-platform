@@ -46,11 +46,11 @@ jobs:
 
       # Step 1.6: Runs SonarQube quality gateway scan (skips automatically if secrets are not set)
       - name: SonarQube Scan
-        if: ${{ secrets.SONAR_TOKEN != '' }}
-        uses: sonarsource/sonarqube-scan-action@v2
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}        # Authenticates against the SonarQube/SonarCloud organization instance
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}  # Host address of the target SonarQube dashboard
+        if: env.SONAR_TOKEN != ''
+        uses: sonarsource/sonarqube-scan-action@v2
 
   # JOB 2: Performs security static analysis on the source code repository
   security-scan:
@@ -170,14 +170,18 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # Step 4.2: Deploys Docker Compose stack to remote host via SSH (executes only if SSH secrets exist)
+      # Step 4.2: Deploys Docker Compose stack to remote host via SSH (skips if secrets are not set)
       - name: Deploy Docker Compose Stack (SSH)
-        if: ${{ secrets.SSH_HOST != '' }}
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        if: env.SSH_HOST != ''
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          host: ${{ env.SSH_HOST }}
+          username: ${{ env.SSH_USERNAME }}
+          key: ${{ env.SSH_PRIVATE_KEY }}
           script: |
             # Creates deployment folder structure
             mkdir -p /app/aio-soc-platform
@@ -191,17 +195,21 @@ jobs:
             # Launches updated services
             docker compose up -d
 
-      # Step 4.3: Sets up Kubeconfig environment (executes only if KUBECONFIG secret exists)
+      # Step 4.3: Sets up Kubeconfig environment (skips if secrets are not set)
       - name: Set up Kubeconfig
-        if: ${{ secrets.KUBECONFIG != '' }}
+        env:
+          KUBECONFIG: ${{ secrets.KUBECONFIG }}
+        if: env.KUBECONFIG != ''
         uses: azure/k8s-set-context@v3
         with:
           method: kubeconfig
-          kubeconfig: ${{ secrets.KUBECONFIG }}
+          kubeconfig: ${{ env.KUBECONFIG }}
 
-      # Step 4.4: Deploys manifests to target Kubernetes cluster (executes only if Kubeconfig exists)
+      # Step 4.4: Deploys manifests to target Kubernetes cluster (skips if secrets are not set)
       - name: Deploy Manifests to Kubernetes
-        if: ${{ secrets.KUBECONFIG != '' }}
+        env:
+          KUBECONFIG: ${{ secrets.KUBECONFIG }}
+        if: env.KUBECONFIG != ''
         run: |
           # Lowercases repository name for correct image registry target reference
           IMAGE_REPO=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')
