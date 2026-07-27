@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { ShieldAlert, Shield, Terminal } from 'lucide-react';
 import { hashStringSHA256, SECURE_HASH } from '../utils/crypto';
 
@@ -50,7 +50,7 @@ export function LoginGateway({ onLoginSuccess }) {
         } else {
           setLoginError('ACCESS DENIED: ' + data.message);
         }
-      } catch (err) {
+      } catch {
         // Fallback to local auth if backend is unreachable
         console.warn('Backend unavailable, falling back to local auth');
         const hashedVal = await hashStringSHA256(password);

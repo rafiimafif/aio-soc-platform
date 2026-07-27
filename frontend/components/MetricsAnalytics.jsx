@@ -1,9 +1,7 @@
-import React from 'react';
-import { BarChart2 } from 'lucide-react';
 import { LineChart, Line, PieChart, Pie, Cell, CartesianGrid, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import { MOCK_ANALYSTS } from '../utils/data';
 
-export function MetricsAnalytics({ incidents }) {
+export function MetricsAnalytics() {
   const trendData = [
     { day: '01', mttd: 25, mttr: 120 }, { day: '05', mttd: 22, mttr: 110 },
     { day: '10', mttd: 18, mttr: 95 },  { day: '15', mttd: 15, mttr: 80 },

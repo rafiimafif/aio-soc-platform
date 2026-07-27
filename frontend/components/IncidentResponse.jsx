@@ -1,4 +1,3 @@
-import React from 'react';
 import { Users, Plus, Clock } from 'lucide-react';
 import { getSeverityBgColor } from '../utils/data';
 

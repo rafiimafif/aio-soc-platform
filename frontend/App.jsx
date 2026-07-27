@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   ShieldAlert, Activity, Search, FileSearch, 
   FileText, BarChart2, Bell, User, Clock, Shield

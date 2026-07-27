@@ -1,10 +1,8 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Hash, CheckCircle, AlertTriangle, FileSearch, Check } from 'lucide-react';
-import { calculateSecureHashes, getRandomSecure } from '../utils/crypto';
 import { MOCK_FORENSIC_CASES, getSeverityBgColor } from '../utils/data';
 
 export function ForensicsWorkbench() {
-  const [fileHashInput, setFileHashInput] = useState('');
   const [hashResult, setHashResult] = useState(null);
   const [origHash, setOrigHash] = useState('');
   const [currHash, setCurrHash] = useState('');
@@ -58,7 +56,7 @@ export function ForensicsWorkbench() {
         } else {
           vtScore = 'Not Found on VT';
         }
-      } catch (err) {
+      } catch {
         vtScore = 'Error contacting VT';
       }
     }

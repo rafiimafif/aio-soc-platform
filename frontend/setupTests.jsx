@@ -1,5 +1,4 @@
 import '@testing-library/jest-dom';
-import React from 'react';
 import { webcrypto } from 'crypto';
 
 // Polyfill Web Crypto API for JSDOM environment

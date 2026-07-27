@@ -1,6 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import React from 'react';
 import App from '../frontend/App';
 import { LoginGateway } from '../frontend/components/LoginGateway';
 import { SiemDashboard } from '../frontend/components/SiemDashboard';
@@ -40,7 +39,9 @@ global.fetch = vi.fn().mockImplementation((url, options) => {
           message = 'Invalid Analyst Signature.';
         }
       }
-    } catch (e) {}
+    } catch {
+      // ignore request body parsing error for non-JSON requests
+    }
 
     return Promise.resolve({
       ok: true,
@@ -277,7 +278,7 @@ describe('ForensicsWorkbench Component', () => {
   });
 
   it('should calculate secure SHA-256/SHA-512 hashes for uploaded file', async () => {
-    const mockDigest = vi.fn().mockImplementation((algo, data) => {
+    const mockDigest = vi.fn().mockImplementation(() => {
       return Promise.resolve(new ArrayBuffer(8));
     });
     vi.stubGlobal('crypto', {
