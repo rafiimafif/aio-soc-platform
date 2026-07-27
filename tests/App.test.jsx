@@ -20,6 +20,68 @@ navigator.clipboard = {
   writeText: vi.fn().mockResolvedValue(undefined)
 };
 
+// Mock global fetch to handle relative URLs in Node/JSDOM testing environment
+global.fetch = vi.fn().mockImplementation((url, options) => {
+  const urlString = typeof url === 'object' ? url.url : url;
+  const absoluteUrl = urlString.startsWith('/')
+    ? `http://localhost${urlString}`
+    : urlString;
+
+  // Handle Auth endpoint requests
+  if (absoluteUrl.includes('/api/auth')) {
+    let success = false;
+    let message = 'Invalid Access Key.';
+    try {
+      if (options && options.body) {
+        const body = JSON.parse(options.body);
+        if (body.username === 'sec_analyst' && body.password === 'SecurityPassword123!') {
+          success = true;
+        } else if (body.username !== 'sec_analyst') {
+          message = 'Invalid Analyst Signature.';
+        }
+      }
+    } catch (e) {}
+
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve({ success, message }),
+    });
+  }
+
+  // Return mocked data matching project endpoints
+  if (absoluteUrl.includes('/api/incidents')) {
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve(MOCK_INCIDENTS),
+    });
+  }
+  if (absoluteUrl.includes('/api/ioc/')) {
+    const indicator = absoluteUrl.split('/').pop();
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve({
+        indicator: indicator,
+        score: 12,
+        type: 'ip',
+        threat_actors: ['APT41'],
+        malware_families: ['CobaltStrike'],
+        description: 'Indicator mapped from mock intelligence feed.',
+      }),
+    });
+  }
+  if (absoluteUrl.includes('/api/health')) {
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve({ status: 'ok', message: 'CyberOps Backend is running.' }),
+    });
+  }
+
+  return Promise.resolve({
+    ok: true,
+    json: () => Promise.resolve({}),
+  });
+});
+
 describe('Security & Crypto Utilities', () => {
   it('should generate random number via getRandomSecure', () => {
     const val = getRandomSecure();
