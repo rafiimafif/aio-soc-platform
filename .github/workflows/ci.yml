@@ -80,3 +80,14 @@ jobs:
           exit-code: '1'
           ignore-unfixed: true
           severity: 'CRITICAL,HIGH'
+
+      # Test Docker Compose Orchestration (Integration/E2E check)
+      - name: Verify Docker Compose Orchestration
+        run: |
+          docker compose up -d
+          echo "Waiting 15 seconds for services to boot and connect..."
+          sleep 15
+          docker compose ps
+          # Query backend health via frontend Nginx proxy on Port 80
+          curl -s --fail http://localhost/api/health || (docker compose logs && exit 1)
+          docker compose down
